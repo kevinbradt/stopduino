@@ -22,9 +22,13 @@ Server server(80);
 
 /************ light stuff **************/
 boolean auth= false;
-boolean red= true;
-boolean yellow=true;
-boolean green=true;
+//boolean red= true; // to be deprecated
+//boolean yellow=true; // to be deprecated
+//boolean green=true; // to be depracated
+int numlights=4; // number of elements of the arrays below
+boolean states[]={1,1,1,1}; // list of the light state
+int pins[]={14,15,16,17}; // list of the light pins
+char* lights[]={"red","yellow","green","beacon"}; // list of the light lables
 char secret[] = "secret";
 int blinkc=1;
 int blinkmax=20000;
@@ -56,9 +60,12 @@ void error_P(const char* str) {
 #define GREENPIN A2
 
 void setlights() { // turn the lights on or off
-  setone(green,GREENPIN);
-  setone(yellow,YELLOWPIN);
-  setone(red,REDPIN);
+  for (int i = 0; i < numlights; i++) { // loop through all the lights
+    setone(states[i],pins[i]);
+  }
+//  setone(green,GREENPIN);
+//  setone(yellow,YELLOWPIN);
+//  setone(red,REDPIN);
 }
 
 void setone(boolean light, int pin) { //turn on one light
@@ -71,6 +78,12 @@ void setone(boolean light, int pin) { //turn on one light
   }
 }
 
+void setstates(boolean newstate) { // set all the states to be on or off
+  for (int i = 0; i < numlights; i++) { // loop through all the lights...
+    states[i]=newstate;
+  }
+}
+
 void setup() {
   Serial.begin(9600);
  
@@ -78,9 +91,12 @@ void setup() {
   Serial.println(FreeRam());  
   
   // set pins as output and turn on all the lights to show that we don't have access yet.
-  pinMode(REDPIN, OUTPUT);
-  pinMode(YELLOWPIN, OUTPUT);
-  pinMode(GREENPIN, OUTPUT);
+//  pinMode(REDPIN, OUTPUT);
+//  pinMode(YELLOWPIN, OUTPUT);
+//  pinMode(GREENPIN, OUTPUT);
+  for (int i = 0; i < numlights; i++) { // loop through all the lights
+    pinMode(pins[i], OUTPUT);
+  }
   setlights();
   
   // initialize the SD card at SPI_HALF_SPEED to avoid bus errors with
@@ -175,16 +191,19 @@ void ListFiles(Client client, uint8_t flags) {
   client.println("</ul>");
 }
 
-void doform(Client client) {
+void doform(Client client) {  // draw the form
   client.println("<form action='b' action='get'>");
-  dobox(client,"red",red);
-  dobox(client,"yellow",yellow);
-  dobox(client,"green",green);
+  for (int i = 0; i < numlights; i++) { // loop through all the lights
+    dobox(client,lights[i],states[i]);
+  }
+//  dobox(client,"red",red);
+//  dobox(client,"yellow",yellow);
+//  dobox(client,"green",green);
   client.println("<input type='password' name='a'><br>");
   client.println("</form>");
 }
 
-void dobox(Client client,char item[], boolean checked) {
+void dobox(Client client,char item[], boolean checked) {  // draw a single checkbox
   client.print("<input type='checkbox' name='c' value='");
   client.print(item);
   client.print("'");
@@ -258,15 +277,12 @@ void loop()
         } else if (strstr(clientline, "GET /") != 0) {
           // this time no space after the /, so a request!
           char *request;
-          
           request = clientline + 5; // look after the "GET /" (5 chars)
           // a little trick, look for the " HTTP/1.1" string and 
           // turn the first character of the substring into a 0 to clear it out.
           (strstr(clientline, " HTTP"))[0] = 0;
-          
-          // print the file we want
+          // print the requested string
           Serial.println(request);
-
 /*
           if (! file.open(&root, filename, O_READ)) {
             client.println("HTTP/1.1 404 Not Found");
@@ -281,36 +297,29 @@ void loop()
           client.println("Content-Type: text/html");
           client.println();
           auth= false;
-          red= true;  // red is the default, in case malformed request is sent
-          yellow=false;
-          green=false;
+//          red= true;  // red is the default, in case malformed request is sent
+//          yellow=false;
+//          green=false;
+          for (int i = 0; i < numlights; i++) { // loop through all the lights...
+            states[i]=false;  // ...and assume they are off
+          }
           if (strstr(request, (const char *)secret) !=0) {
-//          if (strstr(request, "secret") !=0) {
             client.println("<h2>Authenticated</h2>");
             auth= true;
           } else{
             client.println("<h2>Not Authenticated, so NOT...</h2>");
           }
-          if (strstr(request, "green") != 0){ // if they asked for green
-            client.println("Turning Green on<br>");
-            if (auth){ //actually do it
-              green=true;
-              red=false; // might be turned back on later
-            } 
-          }          
-          if (strstr(request, "yellow") != 0){ // if they asked for green
-            client.println("Turning Yellow on<br>");
-            if (auth){ //actually do it
-              yellow=true;
-              red=false;  // might be turned back on later
-            } 
-          }          
-          if (strstr(request, "red") != 0){ // if they asked for green
-            client.println("Turning Red on<br>");
-            if (auth){ //actually do it
-              red=true;
-            } 
-          }          
+          for (int i = 0; i < numlights; i++) { // loop through all the lights...
+            states[i]=false;  // ...and assume they are off
+            if (strstr(request, lights[i]) != 0){ // if they asked for this light
+              client.print("Turning ");
+              client.print(lights[i]);
+              client.println(" on<br>");
+              if (auth){ //actually do it
+                states[i]=true;
+              } // end of "auth" 
+            }  // end of "asked for this light"     
+          }   // end of light loop
 
           if (auth) { // now that all the colors are set, change the lights
             setlights();
@@ -345,17 +354,13 @@ void loop()
  *  when first turned on, blink the lights
  ******************************************/
   if (blinkc == 1 ) { // turn on
-    red=true;
-    yellow=true;
-    green=true;
     Serial.println("On");
+    setstates(true);
     setlights();
     blinkc++;
   } else if (blinkc == (blinkmax/2)) {
-    red=false;
-    yellow=false;
-    green=false;
     Serial.println("Off");
+    setstates(false);
     setlights();
   } else if (blinkc > blinkmax) {
     blinkc=1;
