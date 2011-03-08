@@ -1,13 +1,12 @@
 
 /*
- * This sketch uses the microSD card slot on the Arduino Ethernet shield to server
- * up files over a very minimal browsing interface
+ * Listen for commands to trip relays for a enternet shield equiped arduino
  * 
  * Some code is from Bill Greiman's SdFatLib examples, some is from the Arduino Ethernet
- * WebServer example and the rest is from Limor Fried (Adafruit) so its probably under GPL
+ * WebServer example and some from Limor Fried (Adafruit) so its probably under GPL
  *
  * Tutorial is at http://www.ladyada.net/learn/arduino/ethfiles.html
- * Pull requests should go to http://github.com/adafruit/SDWebBrowse
+ * Pull requests for original code should go to http://github.com/adafruit/SDWebBrowse
  */
 
 #include <SdFat.h>
@@ -24,9 +23,9 @@ Server server(1984);
 /************ light stuff **************/
 boolean auth= false;
 int numlights=4; // number of elements of the arrays below
-boolean states[]={1,1,1,1}; // list of the light state
-int pins[]={14,15,16,17}; // list of the light pins
-char* lights[]={"red","yellow","green","beacon"}; // list of the light lables
+boolean states[]={1,1,1,1}; // list of the light/relay states
+int pins[]={14,15,16,17}; // list of the light/relay pins
+char* lights[]={"red","yellow","green","beacon"}; // list of the "light" lables
 char secret[] = "secret";
 int blinkc=1;
 int blinkmax=20000;
@@ -52,10 +51,7 @@ void error_P(const char* str) {
   while(1);
 }
 
-/*********** Pin Stuff ****************/
-#define REDPIN A0
-#define YELLOWPIN A1
-#define GREENPIN A2
+/*********** light/relay routines ****************/
 
 void setlights() { // turn the lights on or off
   for (int i = 0; i < numlights; i++) { // loop through all the lights
@@ -256,9 +252,6 @@ void loop()
           doform(client);
           client.print("Free Ram: ");
           client.println(FreeRam());        
-          // print all the files, use a helper to keep it clean
-//          client.println("<h2>Files:</h2>");
-//          ListFiles(client, LS_SIZE);
         } else if (strstr(clientline, "GET /") != 0) {
           // this time no space after the /, so a request!
           char *request;
@@ -281,10 +274,7 @@ void loop()
           client.println("HTTP/1.1 200 OK");
           client.println("Content-Type: text/html");
           client.println();
-          auth= false;
-//          red= true;  // red is the default, in case malformed request is sent
-//          yellow=false;
-//          green=false;
+          auth= false;  // assume, until proven different, that the request is not authenticated
           for (int i = 0; i < numlights; i++) { // loop through all the lights...
             states[i]=false;  // ...and assume they are off
           }
@@ -310,8 +300,8 @@ void loop()
             setlights();
             blinkc=0; // stop blinking
           }
-          getlights();
-          doform(client);
+          getlights(); // get the current settings before...
+          doform(client); // ... drawing the form
 
 /*
           int16_t c;
@@ -338,20 +328,21 @@ void loop()
   }
 /*******************************************
  *  when first turned on, blink the lights
+ *    once blinkc is set to 0, it won't blink any more.
  ******************************************/
   if (blinkc == 1 ) { // turn on
     Serial.println("On");
     setstates(true);
     setlights();
     blinkc++;
-  } else if (blinkc == (blinkmax/2)) {
+  } else if (blinkc == (blinkmax/2)) { // half way through, turn off
     Serial.println("Off");
     setstates(false);
     setlights();
-  } else if (blinkc > blinkmax) {
+  } else if (blinkc > blinkmax) { // reset loop
     blinkc=1;
   }
-  if (blinkc >1 ) {
+  if (blinkc >1 ) { // increment loop if counter is set
     blinkc++;
   }
 }
