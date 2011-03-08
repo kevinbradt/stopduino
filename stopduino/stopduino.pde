@@ -26,6 +26,8 @@ boolean red= true;
 boolean yellow=true;
 boolean green=true;
 char secret[] = "secret";
+int blinkc=1;
+int blinkmax=20000;
 
 /************ SDCARD STUFF ************/
 Sd2Card card;
@@ -247,6 +249,7 @@ void loop()
           client.println("HTTP/1.1 200 OK");
           client.println("Content-Type: text/html");
           client.println();
+          doform(client);
           client.print("Free Ram: ");
           client.println(FreeRam());        
           // print all the files, use a helper to keep it clean
@@ -278,7 +281,6 @@ void loop()
           client.println("Content-Type: text/html");
           client.println();
           auth= false;
-          doform(client);
           red= true;  // red is the default, in case malformed request is sent
           yellow=false;
           green=false;
@@ -312,7 +314,10 @@ void loop()
 
           if (auth) { // now that all the colors are set, change the lights
             setlights();
+            blinkc=0; // stop blinking
           }
+          doform(client);
+
 /*
           int16_t c;
           while ((c = file.read()) > 0) {
@@ -335,6 +340,28 @@ void loop()
     // give the web browser time to receive the data
     delay(1);
     client.stop();
+  }
+/*******************************************
+ *  when first turned on, blink the lights
+ ******************************************/
+  if (blinkc == 1 ) { // turn on
+    red=true;
+    yellow=true;
+    green=true;
+    Serial.println("On");
+    setlights();
+    blinkc++;
+  } else if (blinkc == (blinkmax/2)) {
+    red=false;
+    yellow=false;
+    green=false;
+    Serial.println("Off");
+    setlights();
+  } else if (blinkc > blinkmax) {
+    blinkc=1;
+  }
+  if (blinkc >1 ) {
+    blinkc++;
   }
 }
 
