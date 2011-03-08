@@ -17,14 +17,12 @@
 
 /************ ETHERNET STUFF ************/
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x00, 0x38, 0xD2 };
-byte ip[] = { 192, 168, 119, 177 };
-Server server(80);
+//byte ip[] = { 192, 168, 119, 177 };
+byte ip[] = { 172, 18, 4, 196 };
+Server server(1984);
 
 /************ light stuff **************/
 boolean auth= false;
-//boolean red= true; // to be deprecated
-//boolean yellow=true; // to be deprecated
-//boolean green=true; // to be depracated
 int numlights=4; // number of elements of the arrays below
 boolean states[]={1,1,1,1}; // list of the light state
 int pins[]={14,15,16,17}; // list of the light pins
@@ -63,9 +61,12 @@ void setlights() { // turn the lights on or off
   for (int i = 0; i < numlights; i++) { // loop through all the lights
     setone(states[i],pins[i]);
   }
-//  setone(green,GREENPIN);
-//  setone(yellow,YELLOWPIN);
-//  setone(red,REDPIN);
+}
+
+void getlights() { // turn the lights on or off
+  for (int i = 0; i < numlights; i++) { // loop through all the lights
+    states[i]=digitalRead(pins[i]);
+  }
 }
 
 void setone(boolean light, int pin) { //turn on one light
@@ -82,54 +83,6 @@ void setstates(boolean newstate) { // set all the states to be on or off
   for (int i = 0; i < numlights; i++) { // loop through all the lights...
     states[i]=newstate;
   }
-}
-
-void setup() {
-  Serial.begin(9600);
- 
-  PgmPrint("Free RAM: ");
-  Serial.println(FreeRam());  
-  
-  // set pins as output and turn on all the lights to show that we don't have access yet.
-//  pinMode(REDPIN, OUTPUT);
-//  pinMode(YELLOWPIN, OUTPUT);
-//  pinMode(GREENPIN, OUTPUT);
-  for (int i = 0; i < numlights; i++) { // loop through all the lights
-    pinMode(pins[i], OUTPUT);
-  }
-  setlights();
-  
-  // initialize the SD card at SPI_HALF_SPEED to avoid bus errors with
-  // breadboards.  use SPI_FULL_SPEED for better performance.
-  pinMode(10, OUTPUT);                       // set the SS pin as an output (necessary!)
-  digitalWrite(10, HIGH);                    // but turn off the W5100 chip!
-/*
-  if (!card.init(SPI_HALF_SPEED, 4)) error("card.init failed!");
-  
-  // initialize a FAT volume
-  if (!volume.init(&card)) error("vol.init failed!");
-
-  PgmPrint("Volume is FAT");
-  Serial.println(volume.fatType(),DEC);
-  Serial.println();
-  
-  if (!root.openRoot(&volume)) error("openRoot failed");
-
-  // list file in root with date and size
-  PgmPrintln("Files found in root:");
-  root.ls(LS_DATE | LS_SIZE);
-  Serial.println();
-  
-  // Recursive list of all directories
-  PgmPrintln("Files found in all dirs:");
-  root.ls(LS_R);
-  
-  Serial.println();
-  PgmPrintln("Done");
-*/  
-  // Debugging complete, we start the server!
-  Ethernet.begin(mac, ip);
-  server.begin();
 }
 
 void ListFiles(Client client, uint8_t flags) {
@@ -196,9 +149,6 @@ void doform(Client client) {  // draw the form
   for (int i = 0; i < numlights; i++) { // loop through all the lights
     dobox(client,lights[i],states[i]);
   }
-//  dobox(client,"red",red);
-//  dobox(client,"yellow",yellow);
-//  dobox(client,"green",green);
   client.println("<input type='password' name='a'><br>");
   client.println("</form>");
 }
@@ -215,17 +165,52 @@ void dobox(Client client,char item[], boolean checked) {  // draw a single check
   client.println("<br>");
 }
 
-/*
-<form action="form.html" action='get'>
-<input type="checkbox" name="c" value="red">red<br>
-<input type="checkbox" name="c" value="yellow" checked>yellow<br>
-<input type="checkbox" name="c" value="green">green<br>
-<input type="password" name="a"><br>
-</form>
-*/
-
 // How big our line buffer should be. 100 is plenty!
 #define BUFSIZ 100
+
+void setup() {
+  Serial.begin(9600);
+ 
+  PgmPrint("Free RAM: ");
+  Serial.println(FreeRam());  
+  
+  // set pins as output and turn on all the lights to show that we don't have access yet.
+  for (int i = 0; i < numlights; i++) { // loop through all the lights
+    pinMode(pins[i], OUTPUT);
+  }
+  setlights();
+  
+  pinMode(10, OUTPUT);                       // set the SS pin as an output (necessary!)
+  digitalWrite(10, HIGH);                    // but turn off the W5100 chip!
+/*
+  if (!card.init(SPI_HALF_SPEED, 4)) error("card.init failed!");
+  
+  // initialize a FAT volume
+  if (!volume.init(&card)) error("vol.init failed!");
+
+  PgmPrint("Volume is FAT");
+  Serial.println(volume.fatType(),DEC);
+  Serial.println();
+  
+  if (!root.openRoot(&volume)) error("openRoot failed");
+
+  // list file in root with date and size
+  PgmPrintln("Files found in root:");
+  root.ls(LS_DATE | LS_SIZE);
+  Serial.println();
+  
+  // Recursive list of all directories
+  PgmPrintln("Files found in all dirs:");
+  root.ls(LS_R);
+  
+  Serial.println();
+  PgmPrintln("Done");
+*/  
+  // Debugging complete, we start the server!
+  Ethernet.begin(mac, ip);
+  server.begin();
+}
+
 
 void loop()
 {
@@ -325,6 +310,7 @@ void loop()
             setlights();
             blinkc=0; // stop blinking
           }
+          getlights();
           doform(client);
 
 /*
