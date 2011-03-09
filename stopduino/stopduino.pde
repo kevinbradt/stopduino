@@ -333,6 +333,7 @@ void loop()
   if (blinkc == 1 ) { // turn on
     Serial.println("On");
     setstates(true);
+    states[3]=false; // don't flash on the beacon, it's obnoxious.
     setlights();
     blinkc++;
   } else if (blinkc == (blinkmax/2)) { // half way through, turn off
