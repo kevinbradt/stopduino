@@ -2,14 +2,13 @@
 /*
  * Listen for commands to trip relays for a enternet shield equiped arduino
  * 
- * Some code is from Bill Greiman's SdFatLib examples, some is from the Arduino Ethernet
+ * Some is from the Arduino Ethernet
  * WebServer example and some from Limor Fried (Adafruit) so its probably under GPL
  *
  * Tutorial is at http://www.ladyada.net/learn/arduino/ethfiles.html
- * Pull requests for original code should go to http://github.com/adafruit/SDWebBrowse
- */
+  */
 
-#include <SdFat.h>
+//#include <SdFat.h>
 #include <SdFatUtil.h>
 #include <Ethernet.h>
 #include <SPI.h>
@@ -23,33 +22,21 @@ Server server(1984);
 /************ light stuff **************/
 boolean auth= false;
 int numlights=4; // number of elements of the arrays below
-boolean states[]={1,1,1,1}; // list of the light/relay states
+boolean states[]={1,1,1,0}; // list of the light/relay states
+boolean blinkstates[]={1,1,1,0};  // list of which lights/relays should be in the blink cycle
 int pins[]={14,15,16,17}; // list of the light/relay pins
 char* lights[]={"red","yellow","green","beacon"}; // list of the "light" lables
 char secret[] = "secret";
 int blinkc=1;
 int blinkmax=20000;
 
-/************ SDCARD STUFF ************/
+/************ SDCARD STUFF ************
 Sd2Card card;
 SdVolume volume;
 SdFile root;
 SdFile file;
+*/
 
-// store error strings in flash to save RAM
-#define error(s) error_P(PSTR(s))
-
-void error_P(const char* str) {
-  PgmPrint("error: ");
-  SerialPrintln_P(str);
-  if (card.errorCode()) {
-    PgmPrint("SD error: ");
-    Serial.print(card.errorCode(), HEX);
-    Serial.print(',');
-    Serial.println(card.errorData(), HEX);
-  }
-  while(1);
-}
 
 /*********** light/relay routines ****************/
 
@@ -75,69 +62,10 @@ void setone(boolean light, int pin) { //turn on one light
   }
 }
 
-void setstates(boolean newstate) { // set all the states to be on or off
+void setstates(boolean newstate) { // set all the states to be on or off, used in blinking
   for (int i = 0; i < numlights; i++) { // loop through all the lights...
-    states[i]=newstate;
+    states[i]=newstate && blinkstates[i]; // only turn on lights listed in "blinkstates"
   }
-}
-
-void ListFiles(Client client, uint8_t flags) {
-  // This code is just copied from SdFile.cpp in the SDFat library
-  // and tweaked to print to the client output in html!
-  dir_t p;
-  
-  root.rewind();
-  client.println("<ul>");
-  while (root.readDir(p) > 0) {
-    // done if past last used entry
-    if (p.name[0] == DIR_NAME_FREE) break;
-
-    // skip deleted entry and entries for . and  ..
-    if (p.name[0] == DIR_NAME_DELETED || p.name[0] == '.') continue;
-
-    // only list subdirectories and files
-    if (!DIR_IS_FILE_OR_SUBDIR(&p)) continue;
-
-    // print any indent spaces
-    client.print("<li><a href=\"");
-    for (uint8_t i = 0; i < 11; i++) {
-      if (p.name[i] == ' ') continue;
-      if (i == 8) {
-        client.print('.');
-      }
-      client.print(p.name[i]);
-    }
-    client.print("\">");
-    
-    // print file name with possible blank fill
-    for (uint8_t i = 0; i < 11; i++) {
-      if (p.name[i] == ' ') continue;
-      if (i == 8) {
-        client.print('.');
-      }
-      client.print(p.name[i]);
-    }
-    
-    client.print("</a>");
-    
-    if (DIR_IS_SUBDIR(&p)) {
-      client.print('/');
-    }
-
-    // print modify date/time if requested
-    if (flags & LS_DATE) {
-       root.printFatDate(p.lastWriteDate);
-       client.print(' ');
-       root.printFatTime(p.lastWriteTime);
-    }
-    // print size if requested
-    if (!DIR_IS_SUBDIR(&p) && (flags & LS_SIZE)) {
-      client.print(' ');
-      client.print(p.fileSize);
-    }
-    client.println("</li>");
-  }
-  client.println("</ul>");
 }
 
 void doform(Client client) {  // draw the form
@@ -167,7 +95,7 @@ void dobox(Client client,char item[], boolean checked) {  // draw a single check
 void setup() {
   Serial.begin(9600);
  
-  PgmPrint("Free RAM: ");
+  Serial.println("Free RAM: ");
   Serial.println(FreeRam());  
   
   // set pins as output and turn on all the lights to show that we don't have access yet.
@@ -178,30 +106,6 @@ void setup() {
   
   pinMode(10, OUTPUT);                       // set the SS pin as an output (necessary!)
   digitalWrite(10, HIGH);                    // but turn off the W5100 chip!
-/*
-  if (!card.init(SPI_HALF_SPEED, 4)) error("card.init failed!");
-  
-  // initialize a FAT volume
-  if (!volume.init(&card)) error("vol.init failed!");
-
-  PgmPrint("Volume is FAT");
-  Serial.println(volume.fatType(),DEC);
-  Serial.println();
-  
-  if (!root.openRoot(&volume)) error("openRoot failed");
-
-  // list file in root with date and size
-  PgmPrintln("Files found in root:");
-  root.ls(LS_DATE | LS_SIZE);
-  Serial.println();
-  
-  // Recursive list of all directories
-  PgmPrintln("Files found in all dirs:");
-  root.ls(LS_R);
-  
-  Serial.println();
-  PgmPrintln("Done");
-*/  
   // Debugging complete, we start the server!
   Ethernet.begin(mac, ip);
   server.begin();
@@ -261,16 +165,6 @@ void loop()
           (strstr(clientline, " HTTP"))[0] = 0;
           // print the requested string
           Serial.println(request);
-/*
-          if (! file.open(&root, filename, O_READ)) {
-            client.println("HTTP/1.1 404 Not Found");
-            client.println("Content-Type: text/html");
-            client.println();
-            client.println("<h2>File Not Found!</h2>");
-            break;
-          }
-          Serial.println("Opened!");
-*/          
           client.println("HTTP/1.1 200 OK");
           client.println("Content-Type: text/html");
           client.println();
@@ -299,19 +193,32 @@ void loop()
           if (auth) { // now that all the colors are set, change the lights
             setlights();
             blinkc=0; // stop blinking
+            /*  if "error" is sent as part of the request, ignore everything and start the error blink */
+            if (strstr(request, "error") != 0) {
+              client.println("<h1>The request reported an error:<br>'");
+              client.print(request);
+              client.println("'</h1>");
+              blinkc=1; // restart the blinking
+              for (int i = 0; i < numlights; i++) { // loop through all the lights...
+                blinkstates[i]=false;  // ...and assume they are off
+              }
+              if (strstr(request, "error=1") != 0) { // if they reported an error state 1
+                blinkstates[1]=1; //yellow on
+              }
+              if (strstr(request, "error=2") != 0) { // if they reported an error state 2
+                blinkstates[0]=1; //red on
+              }
+              if (!(blinkstates[0] || blinkstates[1])) { // if they reported an error that wasn't listed above
+                blinkstates[0]=1; //red on
+                blinkstates[1]=1; // yellow on
+                blinkstates[2]=1; // green off
+              }
+              blinkmax=10000; // blink twice as fast
+            }
+
           }
           getlights(); // get the current settings before...
           doform(client); // ... drawing the form
-
-/*
-          int16_t c;
-          while ((c = file.read()) > 0) {
-              // uncomment the serial to debug (slow!)
-              //Serial.print((char)c);
-              client.print((char)c);
-          }
-          file.close();
-*/
         } else {
           // everything else is a 404
           client.println("HTTP/1.1 404 Not Found");
@@ -333,7 +240,7 @@ void loop()
   if (blinkc == 1 ) { // turn on
     Serial.println("On");
     setstates(true);
-    states[3]=false; // don't flash on the beacon, it's obnoxious.
+//    states[3]=false; // don't flash on the beacon, it's obnoxious.
     setlights();
     blinkc++;
   } else if (blinkc == (blinkmax/2)) { // half way through, turn off
