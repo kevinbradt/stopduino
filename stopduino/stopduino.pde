@@ -7,17 +7,23 @@
  *
  * Tutorial is at http://www.ladyada.net/learn/arduino/ethfiles.html
   */
+  
+
+// make backwardly compatable
+#if ARDUINO < 100
+  #define EthernetClient Client
+  #define EthernetServer Server
+#endif
 
 //#include <SdFat.h>
-#include <SdFatUtil.h>
+//#include <SdFatUtil.h> // include if you want to uncomment the memory print statements
 #include <Ethernet.h>
 #include <SPI.h>
 
 /************ ETHERNET STUFF ************/
 byte mac[] = { 0x90, 0xA2, 0xDA, 0x00, 0x38, 0xD2 };
-//byte ip[] = { 192, 168, 119, 177 };
-byte ip[] = { 172, 18, 4, 196 };
-Server server(1984);
+byte ip[] = { 192, 168, 42, 50 };
+EthernetServer server(1984);
 
 /************ light stuff **************/
 boolean auth= false;
@@ -68,7 +74,7 @@ void setstates(boolean newstate) { // set all the states to be on or off, used i
   }
 }
 
-void doform(Client client) {  // draw the form
+void doform(EthernetClient client) {  // draw the form
   client.println("<form action='b' action='get'>");
   for (int i = 0; i < numlights; i++) { // loop through all the lights
     dobox(client,lights[i],states[i]);
@@ -77,7 +83,7 @@ void doform(Client client) {  // draw the form
   client.println("</form>");
 }
 
-void dobox(Client client,char item[], boolean checked) {  // draw a single checkbox
+void dobox(EthernetClient client,char item[], boolean checked) {  // draw a single checkbox
   client.print("<input type='checkbox' name='c' value='");
   client.print(item);
   client.print("'");
@@ -95,8 +101,8 @@ void dobox(Client client,char item[], boolean checked) {  // draw a single check
 void setup() {
   Serial.begin(9600);
  
-  Serial.println("Free RAM: ");
-  Serial.println(FreeRam());  
+//  Serial.println("Free RAM: ");
+//  Serial.println(FreeRam());  
   
   // set pins as output and turn on all the lights to show that we don't have access yet.
   for (int i = 0; i < numlights; i++) { // loop through all the lights
@@ -117,7 +123,7 @@ void loop()
   char clientline[BUFSIZ];
   int index = 0;
   
-  Client client = server.available();
+  EthernetClient client = server.available();
   if (client) {
     // an http request ends with a blank line
     boolean current_line_is_blank = true;
@@ -154,8 +160,8 @@ void loop()
           client.println("Content-Type: text/html");
           client.println();
           doform(client);
-          client.print("Free Ram: ");
-          client.println(FreeRam());        
+ //         client.print("Free Ram: ");
+//          client.println(FreeRam());        
         } else if (strstr(clientline, "GET /") != 0) {
           // this time no space after the /, so a request!
           char *request;
