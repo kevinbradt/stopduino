@@ -1,0 +1,1 @@
+Code and schematics to allow an Ethernet equipped arduino control a stop light and other devices.
